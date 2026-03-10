@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>OUTLOOK AI QUEST</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue:    #0078d4;
+    --lblue:   #00bcf2;
+    --cyan:    #00ffff;
+    --yellow:  #ffff00;
+    --green:   #00e676;
+    --red:     #ff1744;
+    --orange:  #ff9100;
+    --purple:  #7c4dff;
+    --dark:    #020a18;
+    --darker:  #010610;
+    --mid:     #041428;
+    --magenta: #e040fb;
+  }
+
+  html, body { width:100%; height:100%; overflow:hidden; background:var(--darker); color:var(--cyan); font-family:'Press Start 2P',monospace; }
+  body { display:flex; align-items:center; justify-content:center; }
+
+  /* SCANLINES */
+  body::after { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.13) 2px,rgba(0,0,0,0.13) 4px); pointer-events:none; z-index:9999; }
+  /* CRT vignette */
+  body::before { content:''; position:fixed; inset:0; background:radial-gradient(ellipse at center, rgba(0,60,120,0.18) 0%, rgba(0,0,0,0.75) 100%); pointer-events:none; z-index:9998; }
+
+  /* TOP-RIGHT FIXED BUTTONS */
+  #top-right-btns { position:fixed; top:8px; right:10px; z-index:10000; display:flex; gap:6px; align-items:center; }
+  #fs-btn, #restart-global-btn { background:rgba(0,0,30,0.88); font-family:'Press Start 2P',monospace; font-size:8px; padding:5px 8px; cursor:pointer; opacity:0.7; transition:all 0.2s; }
+  #fs-btn { border:1px solid var(--purple); color:var(--lblue); }
+  #fs-btn:hover { opacity:1; border-color:var(--cyan); color:var(--cyan); }
+  #restart-global-btn { border:1px solid var(--orange); color:var(--orange); }
+  #restart-global-btn:hover { opacity:1; border-color:var(--yellow); color:var(--yellow); box-shadow:0 0 10px var(--orange); }
+  /* confirm overlay */
+  #restart-confirm { display:none; position:fixed; inset:0; z-index:20000; background:rgba(0,0,0,0.82); align-items:center; justify-content:center; }
+  #restart-confirm.show { display:flex; }
+  #restart-confirm-box { background:#020a18; border:3px solid var(--orange); box-shadow:0 0 40px var(--orange); padding:clamp(16px,3vh,30px) clamp(18px,3vw,36px); text-align:center; max-width:min(440px,90vw); display:flex; flex-direction:column; gap:clamp(8px,1.5vh,16px); }
+  #restart-confirm-box .rc-title { font-size:clamp(10px,2vh,16px); color:var(--orange); text-shadow:0 0 14px var(--orange); }
+  #restart-confirm-box .rc-sub { font-size:clamp(7px,1.1vh,9px); color:#aaa; line-height:2; }
+  #restart-confirm-box .rc-score { font-size:clamp(8px,1.4vh,11px); color:var(--yellow); }
+  .rc-btns { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .rc-btn { font-family:'Press Start 2P',monospace; font-size:clamp(7px,1.1vh,9px); padding:clamp(7px,1.2vh,11px) 14px; cursor:pointer; border:2px solid; transition:all .15s; }
+  .rc-btn:hover { transform:scale(1.07); }
+  .rc-btn.yes { background:rgba(60,0,0,0.9); border-color:var(--red); color:var(--red); }
+  .rc-btn.yes:hover { box-shadow:0 0 14px var(--red); }
+  .rc-btn.no  { background:rgba(0,40,80,0.9); border-color:var(--cyan); color:var(--cyan); }
+  .rc-btn.no:hover  { box-shadow:0 0 14px var(--cyan); }
+  /* mute btn */
+  #mute-btn { position:fixed; top:8px; left:10px; z-index:10000; background:rgba(0,0,30,0.88); border:1px solid #444; color:#777; font-family:'Press Start 2P',monospace; font-size:8px; padding:5px 8px; cursor:pointer; opacity:0.7; transition:all .2s; }
+  #mute-btn:hover { opacity:1; border-color:var(--lblue); color:var(--lblue); }
+
+  #game-container { width:min(920px,98vw); height:100dvh; max-height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* SCREENS */
+  .screen { display:none; width:100%; height:100%; overflow:hidden; }
+  .screen.active { display:flex; flex-direction:column; }
+
+  /* ── TITLE ── */
+  #title-screen { text-align:center; padding:clamp(4px,1vh,12px) 10px; justify-content:center; align-items:center; gap:clamp(3px,0.7vh,10px); }
+
+  .big-title { font-size:clamp(13px,3vh,34px); color:var(--lblue); text-shadow:0 0 20px var(--lblue),0 0 40px var(--blue),4px 4px 0 #003366; animation:titlePulse 1.5s ease-in-out infinite alternate; line-height:1.4; }
+  .subtitle { font-size:clamp(6px,1.1vh,10px); color:var(--magenta); text-shadow:0 0 10px var(--magenta); letter-spacing:2px; }
+  @keyframes titlePulse { from{text-shadow:0 0 20px var(--lblue),4px 4px 0 #003366;} to{text-shadow:0 0 50px var(--cyan),4px 4px 0 var(--purple);} }
+
+  .pixel-bot { font-size:clamp(26px,4.5vh,48px); animation:botFloat 2s ease-in-out infinite; display:block; line-height:1; }
+  @keyframes botFloat { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);} }
+
+  .menu-box { border:3px solid var(--lblue); box-shadow:0 0 20px var(--blue),inset 0 0 20px rgba(0,120,212,0.08); padding:clamp(8px,1.5vh,16px) clamp(10px,2vw,20px); width:100%; max-width:680px; background:rgba(0,10,30,0.93); flex-shrink:0; }
+  .menu-title { font-size:clamp(7px,1.3vh,11px); color:var(--yellow); margin-bottom:clamp(6px,1vh,11px); text-shadow:0 0 8px var(--yellow); }
+
+  /* DIFF */
+  .diff-select { display:flex; gap:clamp(4px,0.8vh,8px); justify-content:center; }
+  .diff-btn { flex:1; background:var(--mid); border:2px solid #333; color:#999; font-family:'Press Start 2P',monospace; font-size:clamp(6px,1vh,8px); padding:clamp(4px,0.8vh,8px) 4px; cursor:pointer; transition:all 0.15s; line-height:1.8; }
+  .diff-btn:hover { transform:scale(1.04); }
+  .diff-btn.diff-easy        { border-color:var(--green); }
+  .diff-btn.diff-easy.sel    { background:rgba(0,80,0,0.7); color:var(--green); box-shadow:0 0 12px var(--green); }
+  .diff-btn.diff-medium      { border-color:var(--yellow); }
+  .diff-btn.diff-medium.sel  { background:rgba(80,80,0,0.7); color:var(--yellow); box-shadow:0 0 12px var(--yellow); }
+  .diff-btn.diff-hard        { border-color:var(--red); }
+  .diff-btn.diff-hard.sel    { background:rgba(80,0,0,0.7); color:var(--red); box-shadow:0 0 12px var(--red); }
+  .diff-badge { font-size:clamp(12px,2vh,18px); display:block; margin-bottom:3px; }
+
+  /* LEVEL SELECT */
+  .level-select { display:grid; grid-template-columns:1fr 1fr; gap:clamp(4px,0.8vh,8px); }
+  .level-btn { background:var(--mid); border:2px solid var(--purple); color:var(--cyan); font-family:'Press Start 2P',monospace; font-size:clamp(6px,1vh,8px); padding:clamp(4px,0.8vh,8px) 6px; cursor:pointer; transition:all 0.15s; text-shadow:0 0 5px var(--cyan); line-height:1.6; }
+  .level-btn:hover,.level-btn.sel { background:var(--purple); border-color:var(--cyan); box-shadow:0 0 14px var(--cyan); transform:scale(1.04); color:var(--yellow); }
+  .level-num { font-size:clamp(12px,2vh,20px); display:block; margin-bottom:3px; color:var(--yellow); }
+
+  .start-btn { background:linear-gradient(135deg,var(--blue),var(--purple)); border:3px solid var(--cyan); color:var(--yellow); font-family:'Press Start 2P',monospace; font-size:clamp(9px,1.6vh,14px); padding:clamp(8px,1.2vh,14px) 22px; cursor:pointer; animation:blinkBtn 1s step-end infinite; box-shadow:0 0 22px var(--blue); transition:transform 0.1s; }
+  .start-btn:hover { transform:scale(1.08); }
+  @keyframes blinkBtn { 0%,49%{opacity:1;} 50%,100%{opacity:0.5;} }
+
+  .hi-bar { font-size:clamp(6px,1vh,8px); color:var(--orange); text-shadow:0 0 8px var(--orange); letter-spacing:2px; }
+  .instructions { font-size:clamp(6px,0.95vh,8px); color:#777; line-height:2.1; }
+  .instructions span { color:var(--lblue); }
+
+  /* ── GAME ── */
+  #game-screen { padding:clamp(4px,0.8vh,10px) clamp(6px,1vw,12px); gap:clamp(3px,0.5vh,7px); }
+
+  .hud { display:flex; justify-content:space-between; align-items:center; background:rgba(0,5,20,0.97); border:2px solid var(--lblue); box-shadow:0 0 14px var(--blue); padding:clamp(3px,0.6vh,7px) 12px; flex-shrink:0; }
+  .hud-item { text-align:center; }
+  .hud-label { color:var(--magenta); font-size:clamp(5px,0.8vh,7px); display:block; margin-bottom:2px; }
+  .hud-value { color:var(--yellow); font-size:clamp(8px,1.4vh,12px); text-shadow:0 0 7px var(--yellow); }
+
+  .level-progress { display:flex; gap:5px; justify-content:center; flex-shrink:0; }
+  .pdot { width:clamp(9px,1.4vh,14px); height:clamp(9px,1.4vh,14px); border:2px solid #333; }
+  .pdot.done    { background:var(--green); border-color:var(--green); box-shadow:0 0 7px var(--green); }
+  .pdot.current { background:var(--yellow); border-color:var(--yellow); box-shadow:0 0 7px var(--yellow); animation:dotBlink .7s step-end infinite; }
+  .pdot.future  { border-color:#222; }
+  @keyframes dotBlink { 0%,49%{opacity:1;} 50%,100%{opacity:0.3;} }
+
+  .boss-label { text-align:center; font-size:clamp(7px,1.2vh,10px); color:var(--red); text-shadow:0 0 10px var(--red); animation:bossFlash .8s step-end infinite; flex-shrink:0; }
+  @keyframes bossFlash { 0%,49%{opacity:1;} 50%,100%{opacity:0.2;} }
+
+  /* ARENA */
+  .arena { background:rgba(0,4,20,0.97); border:3px solid var(--blue); box-shadow:0 0 28px var(--blue),inset 0 0 28px rgba(0,60,130,0.25); padding:clamp(8px,1.4vh,16px); position:relative; overflow:hidden; flex:1; display:flex; flex-direction:column; min-height:0; }
+  .arena::before { content:''; position:absolute; inset:0; background-image:linear-gradient(rgba(0,120,212,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,120,212,0.04) 1px,transparent 1px); background-size:36px 36px; animation:gridMove 10s linear infinite; pointer-events:none; }
+  @keyframes gridMove { from{background-position:0 0;} to{background-position:36px 36px;} }
+
+  .q-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:clamp(5px,0.9vh,11px); position:relative; z-index:2; flex-shrink:0; }
+  .topic-badge { background:var(--blue); border:2px solid var(--lblue); color:var(--yellow); font-size:clamp(6px,1vh,8px); padding:4px 8px; text-shadow:0 0 5px var(--yellow); box-shadow:0 0 10px var(--blue); }
+  .timer-display { font-size:clamp(13px,2.5vh,24px); color:var(--cyan); text-shadow:0 0 14px var(--cyan); animation:timerGlow 1s ease-in-out infinite alternate; }
+  @keyframes timerGlow { from{color:var(--cyan);text-shadow:0 0 14px var(--cyan);} to{color:#fff;text-shadow:0 0 28px var(--cyan);} }
+  .timer-display.danger { color:var(--red)!important; text-shadow:0 0 18px var(--red)!important; animation:timerDanger .3s step-end infinite; }
+  @keyframes timerDanger { 0%,49%{opacity:1;} 50%,100%{opacity:0.3;} }
+
+  .q-text { font-size:clamp(7px,1.3vh,11px); color:#eef; line-height:1.9; margin-bottom:clamp(5px,0.9vh,12px); position:relative; z-index:2; padding:clamp(6px,1vh,11px); background:rgba(0,30,80,0.55); border-left:4px solid var(--lblue); flex-shrink:0; }
+
+  .answers-grid { display:grid; grid-template-columns:1fr 1fr; gap:clamp(4px,0.7vh,9px); position:relative; z-index:2; flex-shrink:0; }
+  .ans-btn { background:rgba(0,15,50,0.92); border:2px solid var(--blue); color:var(--lblue); font-family:'Press Start 2P',monospace; font-size:clamp(6px,1vh,9px); padding:clamp(6px,1vh,9px) 7px; cursor:pointer; text-align:left; line-height:1.6; transition:all 0.1s; position:relative; overflow:hidden; }
+  .ans-btn::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,transparent 50%,rgba(0,120,212,0.06) 50%); }
+  .ans-btn:hover:not(:disabled) { border-color:var(--cyan); background:rgba(0,70,140,0.92); box-shadow:0 0 14px var(--cyan); color:var(--yellow); transform:translateX(4px); }
+  .ans-btn.correct { background:rgba(0,100,0,0.92)!important; border-color:var(--green)!important; color:var(--green)!important; box-shadow:0 0 22px var(--green)!important; animation:correctPop .4s; }
+  .ans-btn.wrong   { background:rgba(100,0,0,0.92)!important; border-color:var(--red)!important;   color:var(--red)!important;   box-shadow:0 0 22px var(--red)!important;   animation:shake .4s; }
+  @keyframes correctPop { 0%{transform:scale(1);} 50%{transform:scale(1.05);} 100%{transform:scale(1);} }
+  @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }
+  .ans-key { display:inline-block; background:var(--blue); color:var(--yellow); padding:2px 5px; margin-right:5px; font-size:clamp(6px,0.9vh,8px); }
+
+  /* FEEDBACK */
+  .feedback { margin-top:clamp(4px,0.7vh,10px); padding:clamp(5px,0.9vh,9px); border:2px solid; font-size:clamp(6px,1vh,8px); line-height:1.7; position:relative; z-index:2; display:none; animation:fadeIn .3s; flex-shrink:0; }
+  .feedback.ok  { border-color:var(--green); background:rgba(0,80,0,0.5); color:var(--green); box-shadow:0 0 13px var(--green); }
+  .feedback.bad { border-color:var(--red);   background:rgba(80,0,0,0.5); color:#ff8080;      box-shadow:0 0 13px var(--red); }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+
+  .next-btn { background:linear-gradient(135deg,#001a44,var(--blue)); border:2px solid var(--cyan); color:var(--yellow); font-family:'Press Start 2P',monospace; font-size:clamp(7px,1.2vh,10px); padding:clamp(5px,0.9vh,9px) 16px; cursor:pointer; margin-top:clamp(4px,0.6vh,8px); box-shadow:0 0 13px var(--cyan); transition:all .15s; }
+  .next-btn:hover { box-shadow:0 0 28px var(--cyan); transform:scale(1.05); }
+  #next-area { position:relative; z-index:10; flex-shrink:0; }
+
+  /* COMBO / FLOAT */
+  .combo-pop { position:absolute; top:10px; right:12px; font-size:clamp(14px,2.5vh,20px); color:var(--yellow); text-shadow:0 0 14px var(--yellow); animation:comboPop .5s ease-out forwards; pointer-events:none; z-index:100; }
+  @keyframes comboPop { 0%{transform:scale(0) rotate(-20deg);opacity:1;} 60%{transform:scale(1.4) rotate(5deg);opacity:1;} 100%{transform:scale(1) rotate(0);opacity:0;} }
+  .float-score { position:absolute; font-size:clamp(11px,2vh,18px); pointer-events:none; z-index:100; animation:floatUp 1s ease-out forwards; }
+  @keyframes floatUp { from{transform:translateY(0);opacity:1;} to{transform:translateY(-55px);opacity:0;} }
+
+  /* ── LEVEL COMPLETE ── */
+  #level-complete { text-align:center; padding:clamp(8px,1.5vh,18px) 14px; justify-content:center; align-items:center; gap:clamp(4px,0.8vh,11px); }
+  .lc-title { font-size:clamp(11px,2.5vh,26px); color:var(--yellow); text-shadow:0 0 28px var(--yellow); animation:winPulse .8s ease-in-out infinite alternate; flex-shrink:0; }
+  @keyframes winPulse { from{transform:scale(1);} to{transform:scale(1.04);} }
+  .star-row { font-size:clamp(16px,3.5vh,34px); letter-spacing:10px; flex-shrink:0; }
+  .score-box { border:3px solid var(--lblue); background:rgba(0,10,40,0.95); padding:clamp(7px,1.3vh,14px) clamp(10px,2vw,18px); width:100%; max-width:520px; box-shadow:0 0 22px var(--blue); flex-shrink:0; }
+  .score-line { display:flex; justify-content:space-between; font-size:clamp(6px,1vh,8px); margin:clamp(3px,0.5vh,6px) 0; color:#bbb; border-bottom:1px dashed #222; padding-bottom:clamp(2px,0.4vh,5px); }
+  .score-line.total { color:var(--yellow); font-size:clamp(8px,1.5vh,12px); border:none; }
+  .fact-box { font-size:clamp(6px,0.95vh,8px); color:#888; width:100%; max-width:520px; line-height:1.9; text-align:left; padding:clamp(6px,1vh,10px); border:1px solid #222; background:rgba(0,0,20,0.8); flex-shrink:0; }
+  .btn-row { display:flex; gap:10px; flex-shrink:0; flex-wrap:wrap; justify-content:center; }
+
+  /* ── GAME OVER ── */
+  #game-over { text-align:center; padding:clamp(8px,2vh,28px) 18px; justify-content:center; align-items:center; gap:clamp(6px,1.2vh,18px); }
+  .go-title { font-size:clamp(17px,4vh,38px); color:var(--red); text-shadow:0 0 28px var(--red); animation:goFlash .5s step-end infinite; flex-shrink:0; }
+  @keyframes goFlash { 0%,49%{opacity:1;} 50%,100%{opacity:0.4;} }
+
+  /* ── FINAL VICTORY ── */
+  #final-victory { text-align:center; padding:clamp(8px,1.5vh,18px); justify-content:center; align-items:center; gap:clamp(4px,0.8vh,12px); }
+  .vc-title { font-size:clamp(11px,2.4vh,21px); animation:vcRainbow 1s linear infinite; flex-shrink:0; }
+  @keyframes vcRainbow { 0%{color:#f00;text-shadow:0 0 26px #f00;} 25%{color:#ff0;text-shadow:0 0 26px #ff0;} 50%{color:#0f0;text-shadow:0 0 26px #0f0;} 75%{color:#0ff;text-shadow:0 0 26px #0ff;} 100%{color:#f0f;text-shadow:0 0 26px #f0f;} }
+  .cert-box { border:3px solid var(--yellow); background:rgba(10,5,0,0.96); padding:clamp(8px,1.4vh,16px) clamp(10px,2vw,18px); width:100%; max-width:580px; box-shadow:0 0 28px var(--yellow); flex-shrink:0; }
+  .cert-line { font-size:clamp(6px,1vh,9px); color:#ddd; margin:clamp(3px,0.5vh,6px) 0; line-height:1.8; }
+
+  .level-btn.boss-btn { grid-column: 1 / -1; border-color:var(--red); color:var(--red); animation:bossFlash 1.2s step-end infinite; }
+  .level-btn.boss-btn:hover,.level-btn.boss-btn.sel { background:rgba(80,0,0,0.8); border-color:var(--red); box-shadow:0 0 18px var(--red); color:var(--yellow); }
+
+  /* ── RECAP SCREEN ── */
+  #recap-screen { padding:clamp(4px,0.8vh,10px) clamp(6px,1vw,14px); gap:clamp(3px,0.5vh,7px); }
+  .recap-header { text-align:center; flex-shrink:0; }
+  .recap-title { font-size:clamp(10px,2vh,18px); color:var(--yellow); text-shadow:0 0 14px var(--yellow); }
+  .recap-stats { display:flex; gap:clamp(6px,1.2vw,16px); justify-content:center; font-size:clamp(7px,1.1vh,9px); flex-shrink:0; flex-wrap:wrap; }
+  .recap-stat { background:rgba(0,10,40,0.9); border:2px solid var(--blue); padding:clamp(4px,0.8vh,8px) clamp(8px,1.5vw,14px); text-align:center; }
+  .recap-stat-val { font-size:clamp(14px,2.8vh,24px); display:block; }
+  .recap-stat-val.green { color:var(--green); text-shadow:0 0 8px var(--green); }
+  .recap-stat-val.red   { color:var(--red);   text-shadow:0 0 8px var(--red); }
+  .recap-stat-val.yellow{ color:var(--yellow);text-shadow:0 0 8px var(--yellow); }
+
+  .recap-list { flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:clamp(4px,0.7vh,8px); padding-right:4px; }
+  .recap-item { border:2px solid; padding:clamp(5px,0.9vh,10px) clamp(7px,1.2vw,12px); font-size:clamp(6px,1vh,8px); flex-shrink:0; }
+  .recap-item.ri-ok   { border-color:var(--green); background:rgba(0,50,0,0.55); }
+  .recap-item.ri-bad  { border-color:var(--red);   background:rgba(60,0,0,0.55); }
+  .recap-item.ri-skip { border-color:#555;         background:rgba(20,20,20,0.6); }
+  .recap-item-q  { color:#eee; margin-bottom:4px; line-height:1.6; }
+  .recap-item-ans{ display:flex; gap:10px; flex-wrap:wrap; margin:3px 0; font-size:clamp(6px,0.95vh,7px); }
+  .ri-given  { color:var(--orange); }
+  .ri-right  { color:var(--green); }
+  .recap-item-exp{ color:#aaa; line-height:1.7; margin-top:4px; border-top:1px dashed #333; padding-top:4px; }
+  .recap-badge { display:inline-block; padding:2px 6px; margin-right:5px; font-size:clamp(6px,0.9vh,7px); }
+  .rb-ok   { background:var(--green); color:#000; }
+  .rb-bad  { background:var(--red);   color:#fff; }
+  .rb-skip { background:#555;         color:#ccc; }
+
+  .recap-level-hdr { font-size:clamp(7px,1.1vh,9px); color:var(--lblue); border-bottom:2px solid var(--blue); padding-bottom:4px; margin-top:4px; flex-shrink:0; }
+  .recap-btn-row { display:flex; gap:8px; flex-shrink:0; flex-wrap:wrap; justify-content:center; }
+  .pdf-btn { background:linear-gradient(135deg,#1a0044,#000033); border:2px solid var(--magenta); color:var(--magenta); font-family:'Press Start 2P',monospace; font-size:clamp(7px,1.1vh,9px); padding:clamp(6px,1vh,10px) 14px; cursor:pointer; box-shadow:0 0 10px var(--magenta); transition:all .15s; }
+  .pdf-btn:hover { box-shadow:0 0 22px var(--magenta); transform:scale(1.05); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width:5px; }
+  ::-webkit-scrollbar-track { background:#000; }
+  ::-webkit-scrollbar-thumb { background:var(--blue); }
+</style>
+</head>
+<body>
+
+<button id="mute-btn" onclick="toggleMute()" title="Audio on/off">🔊 ON</button>
+<div id="top-right-btns">
+  <button id="restart-global-btn" onclick="askRestart()" title="Ricomincia da capo">↺ RESTART</button>
+  <button id="fs-btn" onclick="toggleFS()" title="Schermo intero">⛶ FULL</button>
+</div>
+<div id="restart-confirm">
+  <div id="restart-confirm-box">
+    <div class="rc-title">⚠️ RESTART?</div>
+    <div class="rc-sub">Vuoi davvero ricominciare dall'inizio?<br>Perderai il punteggio attuale!</div>
+    <div class="rc-score">Punteggio: <span id="rc-score-val">0</span> PTS</div>
+    <div class="rc-btns">
+      <button class="rc-btn yes" onclick="confirmRestart()">💀 SÌ, RICOMINCIA</button>
+      <button class="rc-btn no"  onclick="closeRestart()">↩ ANNULLA</button>
+    </div>
+  </div>
+</div>
+<div id="particles"></div>
+
+<div id="game-container">
+
+  <!-- ══ TITLE ══ -->
+  <div id="title-screen" class="screen active">
+    <div class="big-title">📧 OUTLOOK AI QUEST 📧</div>
+    <div class="subtitle">IA PER OUTLOOK · SMETTI DI LAVORARE, INIZIA A PILOTARE!</div>
+    <span class="pixel-bot">🤖</span>
+
+    <div class="menu-box">
+      <div class="menu-title">▶ SCEGLI LA DIFFICOLTÀ</div>
+      <div class="diff-select">
+        <button class="diff-btn diff-easy sel" data-diff="easy"   onclick="selDiff('easy')"><span class="diff-badge">🟢</span>FACILE<br><small style="color:#aaa;font-size:6px">60 sec</small></button>
+        <button class="diff-btn diff-medium"   data-diff="medium" onclick="selDiff('medium')"><span class="diff-badge">🟡</span>MEDIA<br><small style="color:#aaa;font-size:6px">30 sec</small></button>
+        <button class="diff-btn diff-hard"     data-diff="hard"   onclick="selDiff('hard')"><span class="diff-badge">🔴</span>DIFFICILE<br><small style="color:#aaa;font-size:6px">15 sec</small></button>
+      </div>
+      <br>
+      <div class="menu-title">▶ SCEGLI IL LIVELLO DI INIZIO</div>
+      <div class="level-select" id="level-select">
+        <button class="level-btn sel" data-lv="0" onclick="selLevel(0)"><span class="level-num">①</span>COPILOT BASE<br><small style="color:#aaa;font-size:6px">Cos'è & Funzioni</small></button>
+        <button class="level-btn"    data-lv="1" onclick="selLevel(1)"><span class="level-num">②</span>PROMPT & RUOLI<br><small style="color:#aaa;font-size:6px">Framework & Tecniche</small></button>
+        <button class="level-btn"    data-lv="2" onclick="selLevel(2)"><span class="level-num">③</span>AGENTI & LIMITI<br><small style="color:#aaa;font-size:6px">LLM, Token, Agent</small></button>
+        <button class="level-btn"    data-lv="3" onclick="selLevel(3)"><span class="level-num">④</span>SICUREZZA<br><small style="color:#aaa;font-size:6px">Purview, DLP, Privacy</small></button>
+        <button class="level-btn"    data-lv="4" onclick="selLevel(4)"><span class="level-num">⑤</span>POWER AUTOMATE<br><small style="color:#aaa;font-size:6px">Flussi & Automazione</small></button>
+        <button class="level-btn"    data-lv="5" onclick="selLevel(5)"><span class="level-num">⑥</span>COPILOT STUDIO<br><small style="color:#aaa;font-size:6px">Agenti Pro & Low-Code</small></button>
+        <button class="level-btn boss-btn" data-lv="6" onclick="selLevel(6)"><span class="level-num">⑦</span>💀 BOSS FINALE 💀<br><small style="color:#aaa;font-size:6px">Verifica completa su tutti i moduli!</small></button>
+      </div>
+      <br>
+      <button class="start-btn" onclick="startGame()">▶ GIOCA ORA ◀</button>
+    </div>
+
+    <div class="hi-bar">🏆 HIGHSCORE: <span id="hi-display">0</span> PTS &nbsp;|&nbsp; INSERISCI GETTONE</div>
+    <div class="instructions">
+      <span>RISPONDI</span> correttamente → punti &nbsp;|&nbsp; <span>COMBO</span> consecutive → ×2 ×3 ×4<br>
+      <span>VITE:</span> 3 errori = GAME OVER &nbsp;|&nbsp; <span>A/B/C/D</span> o tasti per rispondere
+    </div>
+  </div>
+
+  <!-- ══ GAME ══ -->
+  <div id="game-screen" class="screen">
+    <div class="hud">
+      <div class="hud-item"><span class="hud-label">PUNTEGGIO</span><span class="hud-value" id="hud-score">0</span></div>
+      <div class="hud-item"><span class="hud-label">LIVELLO</span><span class="hud-value" id="hud-level">1</span></div>
+      <div class="hud-item"><span class="hud-label">VITE</span><span class="hud-value" id="hud-lives">❤️❤️❤️</span></div>
+      <div class="hud-item"><span class="hud-label">COMBO</span><span class="hud-value" id="hud-combo">×1</span></div>
+      <div class="hud-item"><span class="hud-label">DIFF.</span><span class="hud-value" id="hud-diff">🟢</span></div>
+      <div class="hud-item"><span class="hud-label">DOMANDA</span><span class="hud-value" id="hud-q">1/6</span></div>
+    </div>
+    <div id="boss-lbl" class="boss-label" style="display:none">⚠️ BOSS ROUND – VERIFICA TOTALE ⚠️</div>
+    <div class="level-progress" id="level-progress"></div>
+    <div class="arena">
+      <div class="q-header">
+        <div class="topic-badge" id="topic-badge">ARGOMENTO</div>
+        <div class="timer-display" id="timer-el">⏱ 30</div>
+      </div>
+      <div class="q-text" id="q-text">...</div>
+      <div class="answers-grid" id="ans-grid"></div>
+      <div class="feedback" id="feedback"></div>
+      <div id="next-area"></div>
+    </div>
+  </div>
+
+  <!-- ══ LEVEL COMPLETE ══ -->
+  <div id="level-complete" class="screen">
+    <div class="lc-title" id="lc-title">LIVELLO COMPLETATO!</div>
+    <div class="star-row" id="star-row">⭐⭐⭐</div>
+    <div class="score-box">
+      <div class="score-line"><span>Risposte corrette:</span><span id="lc-correct">-</span></div>
+      <div class="score-line"><span>Combo massimo:</span><span id="lc-combo">-</span></div>
+      <div class="score-line"><span>Bonus tempo:</span><span id="lc-time">-</span></div>
+      <div class="score-line total"><span>TOTALE:</span><span id="lc-total">-</span></div>
+    </div>
+    <div class="fact-box" id="lc-fact"></div>
+    <div class="btn-row">
+      <button class="start-btn" id="next-lv-btn" onclick="nextLevel()">LIVELLO SUCCESSIVO ▶</button>
+      <button class="start-btn" style="background:linear-gradient(135deg,#220044,#000033);" onclick="restartLevel()">↺ RIGIOCA</button>
+      <button class="start-btn" style="background:linear-gradient(135deg,#220000,#000033);" onclick="goTitle()">↩ MENU</button>
+    </div>
+  </div>
+
+  <!-- ══ GAME OVER ══ -->
+  <div id="game-over" class="screen">
+    <div class="go-title">GAME OVER</div>
+    <span style="font-size:clamp(34px,6vh,54px)">💀</span>
+    <div style="font-size:clamp(7px,1.2vh,10px);color:#ccc;line-height:2;flex-shrink:0">Copilot ti ha allucinato!<br>Studia le slide e riprova!</div>
+    <div style="border:2px solid var(--red);padding:clamp(8px,1.4vh,14px);width:100%;max-width:380px;font-size:clamp(7px,1.2vh,9px);flex-shrink:0;text-align:center">
+      <div style="color:var(--orange)">PUNTEGGIO FINALE</div>
+      <div style="color:var(--yellow);font-size:clamp(16px,3.5vh,30px);margin:8px 0" id="go-score">0</div>
+      <div style="color:#555;font-size:clamp(6px,1vh,8px)">HIGHSCORE: <span id="go-hi">0</span></div>
+    </div>
+    <div class="btn-row">
+      <button class="start-btn" onclick="showRecap()">📋 RIEPILOGO</button>
+      <button class="start-btn" onclick="restartLevel()">↺ RIPROVA</button>
+      <button class="start-btn" style="background:linear-gradient(135deg,#220044,#000033);" onclick="goTitle()">↩ MENU</button>
+    </div>
+  </div>
+
+  <!-- ══ FINAL VICTORY ══ -->
+  <div id="final-victory" class="screen">
+    <div class="vc-title">🏆 CONGRATULAZIONI! OUTLOOK AI MASTER! 🏆</div>
+    <div style="font-size:clamp(28px,5vh,46px);flex-shrink:0">📧🤖✨</div>
+    <div class="cert-box">
+      <div style="color:var(--yellow);font-size:clamp(8px,1.4vh,11px);text-align:center;margin-bottom:8px;text-shadow:0 0 10px var(--yellow)">★ CERTIFICATO DI COMPLETAMENTO ★</div>
+      <div class="cert-line">Hai completato: <span style="color:var(--lblue)">IA PER OUTLOOK – COMPETENZE AVANZATE</span></div>
+      <div class="cert-line">✅ Copilot in Outlook – Funzioni e Utilizzo</div>
+      <div class="cert-line">✅ Prompt Framework: RTF, RISEN, RODES, Chain of Thought</div>
+      <div class="cert-line">✅ Agenti M365 vs Copilot Studio – Differenze e Casi d'Uso</div>
+      <div class="cert-line">✅ Copilot Studio – Agenti Pro, Connettori API, Multi-Agent</div>
+      <div class="cert-line">✅ Sicurezza, Purview, DLP e Governance</div>
+      <div class="cert-line">✅ Power Automate e Automazione flussi</div>
+      <div class="cert-line" style="margin-top:8px;color:var(--yellow)">PUNTEGGIO: <span id="final-score" style="font-size:1.3em">0</span> PTS</div>
+    </div>
+    <div class="btn-row">
+      <button class="start-btn" onclick="showRecap()">📋 VEDI RIEPILOGO</button>
+      <button class="start-btn" style="background:linear-gradient(135deg,#003300,#000033);" onclick="goTitle()">▶ GIOCA ANCORA</button>
+    </div>
+  </div>
+
+  <!-- ══ RECAP ══ -->
+  <div id="recap-screen" class="screen">
+    <div class="recap-header">
+      <div class="recap-title">📋 RIEPILOGO RISPOSTE</div>
+    </div>
+    <div class="recap-stats" id="recap-stats"></div>
+    <div class="recap-list" id="recap-list"></div>
+    <div class="recap-btn-row">
+      <button class="pdf-btn" onclick="downloadPDF()">⬇ SCARICA PDF</button>
+      <button class="start-btn" onclick="restartLevel()">↺ RIGIOCA</button>
+      <button class="start-btn" style="background:linear-gradient(135deg,#220044,#000033);" onclick="goTitle()">↩ MENU</button>
+    </div>
+  </div>
+
+</div><!-- #game-container -->
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  DOMANDE
+// ══════════════════════════════════════════════════════════
+const LEVELS = [
+{
+  name:"COPILOT BASE",
+  topic:"📧 COPILOT IN OUTLOOK",
+  color:"#00bcf2",
+  emoji:"📧",
+  fact:"💡 Copilot in Outlook usa LLM + Microsoft Graph per generare bozze, riassumere conversazioni, suggerire risposte rapide e pianificare riunioni con FindTime. Non prende decisioni: ti dà suggerimenti intelligenti.",
+  questions:[
+    { q:"Cosa consente di fare la funzione 'Suggerimento di risposte' in Outlook?", a:["Bloccare le email indesiderate","Suggerire brevi risposte in base al contenuto dell'email","Tradurre automaticamente le email","Rimuovere allegati pesanti"], correct:1, exp:"✅ La funzione suggerisce brevi risposte contestuali basate sul contenuto dell'email ricevuta, consentendo di rispondere rapidamente senza digitare manualmente." },
+    { q:"Outlook Copilot serve principalmente per:", a:["Creare grafici in Excel","Automatizzare il backup del sistema","Generare e suggerire testi nelle email","Ordinare file per dimensione"], correct:2, exp:"✅ Copilot in Outlook è progettato per generare bozze di email, riassumere thread, suggerire risposte e ottimizzare la comunicazione aziendale." },
+    { q:"In Outlook, FindTime viene utilizzato per:", a:["Trovare email duplicate","Pianificare riunioni in modo intelligente","Archiviare eventi del calendario","Bloccare orari non disponibili"], correct:1, exp:"✅ FindTime è lo strumento AI che suggerisce le fasce orarie disponibili per tutti i partecipanti a una riunione, semplificando la pianificazione." },
+    { q:"Quale è il vantaggio dell'integrazione Outlook-Teams nella gestione delle riunioni?", a:["Riduce l'uso della CPU","Consente la sincronizzazione dei contatti","Permette di inviare inviti automatici e ricevere suggerimenti di orari","Disattiva le notifiche email"], correct:2, exp:"✅ L'integrazione Outlook-Teams consente di inviare inviti automatici con link Teams e ricevere suggerimenti AI sugli orari migliori per tutti i partecipanti." },
+    { q:"Cosa si intende per 'categoria intelligente' in Outlook?", a:["Una nuova tipologia di firma automatica","Una categoria assegnata in base al contenuto o comportamento","Una funzione per contare i destinatari","Un'opzione per oscurare i contenuti sensibili"], correct:1, exp:"✅ Le categorie intelligenti sono assegnate automaticamente dall'AI in base al contenuto delle email o al comportamento dell'utente, facilitando l'organizzazione della posta." },
+    { q:"In Outlook Web, le risposte rapide sono:", a:["Comandi vocali","Messaggi precompilati suggeriti dall'AI","Script di PowerShell","Firme multiple"], correct:1, exp:"✅ Le risposte rapide in Outlook Web sono messaggi brevi precompilati che l'AI suggerisce in base al contenuto dell'email ricevuta." },
+  ]
+},
+{
+  name:"PROMPT & RUOLI",
+  topic:"✍️ PROMPT FRAMEWORK",
+  color:"#e040fb",
+  emoji:"✍️",
+  fact:"💡 I Prompt Framework (RTF, RISEN, RODES, Chain of Thought) strutturano le richieste all'AI per ottenere risposte più precise. Anthropic chiama le 4 competenze chiave: Delegazione, Descrizione, Discernimento, Diligenza.",
+  questions:[
+    { q:"Cosa significa il framework RTF per i prompt?", a:["Response, Text, Format","Role, Task, Format","Rules, Token, Function","Retrieve, Transform, Feed"], correct:1, exp:"✅ RTF sta per Role (ruolo dell'AI), Task (cosa deve fare) e Format (formato dell'output). È il framework più semplice e versatile per strutturare un prompt efficace." },
+    { q:"Cosa si aggiunge alla fine di un prompt per attivare la 'Catena di Pensiero'?", a:["'Sii preciso e dettagliato'","'Ragioniamoci insieme un passo alla volta'","'Rispondi in formato tabella'","'Considera tutte le opzioni'"], correct:1, exp:"✅ La frase 'Ragioniamoci insieme un passo alla volta' attiva il ragionamento step-by-step dell'AI, ottimo per problem solving e task analitici complessi." },
+    { q:"Il framework RISEN include quale elemento NON presente in RTF?", a:["Role (Ruolo)","Format (Formato)","Steps (Passaggi) + End Goal + Narrowing","Task (Compito)"], correct:2, exp:"✅ RISEN aggiunge Steps (passaggi guidati), End Goal (obiettivo finale) e Narrowing (vincoli) rispetto al semplice RTF, ideale per task complessi." },
+    { q:"Quando è più efficace usare il framework RODES rispetto a RISEN?", a:["Quando non hai idee sul risultato","Quando hai esempi chiari dell'output che desideri","Quando vuoi risposte brevi","Quando lavori solo in italiano"], correct:1, exp:"✅ RODES (Role, Objectives, Details, Examples, Sense Check) è più efficace quando hai esempi concreti dell'output desiderato che l'AI può usare come riferimento." },
+    { q:"Assegnare un 'ruolo' all'AI nel prompt serve principalmente a:", a:["Cambiare la lingua della risposta","Delimitare il campo semantico e attivare pattern linguistici specifici","Aumentare la velocità di risposta","Ridurre il numero di token usati"], correct:1, exp:"✅ Assegnare un ruolo all'AI delimita lo spazio latente e attiva cluster di dati specifici associati a quel profilo durante il training, migliorando la qualità dell'output." },
+    { q:"Qual è il rischio principale dell''over-reliance' su un ruolo AI ben definito?", a:["Risposte più corte","L'AI diventa convincente anche quando sbaglia","Maggiore consumo di token","Conflitti con la lingua italiana"], correct:1, exp:"✅ Un ruolo ben definito può rendere l'AI molto convincente anche in caso di errore (allucinazione). Si consiglia sempre di affiancare un 'Revisore Critico'." },
+  ]
+},
+{
+  name:"AGENTI & LIMITI",
+  topic:"🤖 AGENTI & LLM",
+  color:"#00e676",
+  emoji:"🤖",
+  fact:"💡 Gli 'agenti semplici' in M365 sono prompt RAG preconfigurati (solo lettura). Copilot Studio crea agenti veri con logica condizionale e connettori API verso sistemi esterni. La differenza è: recuperare informazioni vs eseguire transazioni.",
+  questions:[
+    { q:"Qual è la differenza principale tra un 'Agente Semplice' M365 e un agente Copilot Studio?", a:["Il colore dell'interfaccia","L'agente semplice è sola lettura/RAG; Studio esegue azioni su sistemi esterni","Il costo della licenza Microsoft","La lingua supportata"], correct:1, exp:"✅ L'agente semplice recupera informazioni da M365 (sola lettura). Copilot Studio può eseguire transazioni commerciali, modificare dati e connettersi a sistemi come SAP o Salesforce." },
+    { q:"Cosa significa 'context window' in un modello LLM?", a:["La finestra del browser in cui usi Copilot","Lo spazio massimo di token gestibili in input + output","Il numero massimo di utenti simultanei","La dimensione dello schermo consigliata"], correct:1, exp:"✅ La context window è il limite massimo di token (input + output) che il modello può tenere in 'memoria attiva'. Superato il limite, le informazioni più vecchie vengono eliminate." },
+    { q:"Perché l'italiano richiede più token dell'inglese negli LLM?", a:["Perché l'italiano ha più parole","Per la morfologia più complessa: servono più token per lo stesso concetto","Perché gli LLM sono addestrati solo in inglese","Per la diversa codifica UTF-8"], correct:1, exp:"✅ La morfologia italiana (declinazioni, coniugazioni) è più complessa dell'inglese, quindi lo stesso concetto richiede mediamente più token, riducendo l'efficienza del contesto." },
+    { q:"Cosa succede quando Copilot supera il limite della context window in una lunga conversazione?", a:["Si blocca e chiede di ricominciare","Inizia a 'dimenticare' le istruzioni date all'inizio della conversazione","Rallenta progressivamente","Chiede di acquistare una licenza premium"], correct:1, exp:"✅ Quando il buffer si riempie, il modello scarta i token più vecchi per far spazio ai nuovi. Questo spiega perché in conversazioni lunghe Copilot perde le istruzioni iniziali." },
+    { q:"Cosa si intende per 'Sycophancy' (compiacenza) di un LLM?", a:["La tendenza a rispondere in rima","Il bias per cui l'AI tende a confermare la premessa dell'utente anche se errata","La velocità di risposta dell'AI","La preferenza per le risposte in elenco puntato"], correct:1, exp:"✅ La Sycophancy nasce dall'RLHF: l'AI è addestrata a compiacere l'utente, quindi tende ad allucinare ragioni per confermare la premessa della domanda invece di contraddirla." },
+    { q:"In un flusso Power Automate per Outlook, qual è il trigger tipico?", a:["All'apertura del file Excel","Alla ricezione di una nuova email","Al click su un'immagine","All'avvio del sistema operativo"], correct:1, exp:"✅ Il trigger 'Alla ricezione di una nuova email' è il punto di partenza classico di un flusso Power Automate per Outlook, che poi esegue azioni automatiche basate sulla mail ricevuta." },
+  ]
+},
+{
+  name:"SICUREZZA",
+  topic:"🔒 PURVIEW & DLP",
+  color:"#ff9100",
+  emoji:"🔒",
+  fact:"💡 Copilot eredita esattamente i permessi dell'utente (Just Enough Access). Purview protegge i dati con Sensitivity Labels crittografiche che 'viaggiano col file'. Ogni interazione con Copilot aziendale è registrata in eDiscovery e legalmente ispezionabile.",
+  questions:[
+    { q:"Come funziona il modello JEA (Just Enough Access) con Copilot?", a:["Copilot ha più permessi dell'utente per essere più utile","Copilot eredita esattamente i permessi dell'utente che digita il prompt","Copilot ha accesso solo alle email degli ultimi 30 giorni","Copilot non può accedere a SharePoint"], correct:1, exp:"✅ Copilot non aggira la sicurezza: ha esattamente le stesse libertà dell'utente che lo usa. Se una cartella è aperta per errore a 'chiunque', Copilot la troverà." },
+    { q:"Cosa sono le 'Sensitivity Labels' di Microsoft Purview?", a:["Etichette colorate per le cartelle di Outlook","Classificatori crittografici che viaggiano col file e controllano chi può accedere ai dati","Tag visuali per evidenziare email importanti","Filtri antispam avanzati"], correct:1, exp:"✅ Le Sensitivity Labels iniettano regole crittografiche nel file stesso. Copilot le legge prima di rispondere: se l'utente non ha i diritti di decrittazione, l'AI nega l'accesso." },
+    { q:"Cosa registra Purview eDiscovery in merito all'uso di Copilot aziendale?", a:["Solo gli allegati inviati","Ogni prompt scritto e ogni risposta generata, in modo immutabile e ispezionabile","Solo le email esterne","Solo i calendari condivisi"], correct:1, exp:"✅ Ogni interazione con Copilot in M365 è archiviata nei log crittografati di eDiscovery. Nessuna chat aziendale con l'AI è privata: il reparto Compliance può ispezionarle tutte." },
+    { q:"Cosa fa la policy DLP di Exchange quando Copilot genera una bozza con numeri di carte di credito?", a:["Evidenzia i numeri in rosso","Permette di inviare l'email ma aggiunge un avviso","Blocca materialmente l'invio verso domini esterni","Cancella automaticamente la bozza"], correct:2, exp:"✅ Copilot genera la bozza obbedendo al prompt, ma le regole DLP di Exchange bloccano l'invio verso l'esterno di contenuti sensibili come dati finanziari." },
+    { q:"Come protegge Purview un file 'Confidenziale HR' finito accidentalmente in una cartella pubblica?", a:["Elimina il file automaticamente","L'etichetta Purview sovrascrive i permessi della cartella: Copilot non estrae i dati","Invia un'email di avviso all'amministratore","Blocca l'accesso a SharePoint per 24 ore"], correct:1, exp:"✅ La protezione Purview è incentrata sul dato, non sul contenitore. Anche se il file è in una cartella pubblica, l'etichetta crittografica impedisce a Copilot di estrarne i dati." },
+    { q:"Quale funzione AI aiuta Outlook a proporre la migliore fascia oraria per una riunione?", a:["Smart Schedule","FindTime","Viva Copilot","Graph Alert"], correct:1, exp:"✅ FindTime è il componente aggiuntivo di Outlook (integrato anche con Copilot) che analizza le agende condivise e propone le fasce orarie ottimali per tutti i partecipanti." },
+  ]
+},
+{
+  name:"POWER AUTOMATE",
+  topic:"⚡ AUTOMAZIONE",
+  color:"#ffff00",
+  emoji:"⚡",
+  fact:"💡 Power Automate è deterministico: se A allora B, zero errori logici. Copilot è probabilistico: ottimo per capire il testo, fallibile sulle esecuzioni rigide in serie. La coppia AI + RPA combina la comprensione del linguaggio con l'esecuzione infallibile.",
+  questions:[
+    { q:"In che modo Outlook può integrare Power Automate per la gestione delle email?", a:["Inviando risposte vocali","Automatizzando risposte, archiviazione e salvataggio allegati","Cambiando i colori delle cartelle","Eseguendo backup su hard disk esterni"], correct:1, exp:"✅ Power Automate si integra con Outlook per automatizzare flussi: risposta automatica, archiviazione intelligente, salvataggio allegati su SharePoint, notifiche su Teams e altro." },
+    { q:"Qual è la differenza fondamentale tra Copilot (LLM) e Power Automate (RPA)?", a:["Copilot è più veloce","Copilot è probabilistico, Power Automate è deterministico (se A allora B)","Power Automate richiede la licenza Teams","Copilot non può leggere le email"], correct:1, exp:"✅ Copilot è probabilistico: predice le parole più plausibili, può sbagliare su esecuzioni rigide. Power Automate esegue logica pura (Se A → B) con tasso di errore tecnico pari a zero." },
+    { q:"Cosa può fare con l'integrazione di AI Builder su Outlook via Power Automate?", a:["Analizzare il sentiment delle email","Convertire file Excel in Word","Avviare presentazioni PowerPoint","Migliorare la velocità del client"], correct:0, exp:"✅ AI Builder integrato in Power Automate può analizzare il sentiment delle email (positivo/negativo/neutro) e innescare flussi diversi in base al tono del messaggio." },
+    { q:"Quale è l'obiettivo dell'uso di categorie condizionali in Outlook?", a:["Ordinare automaticamente i messaggi","Creare regole di rete","Eliminare automaticamente i messaggi letti","Sincronizzare i calendari"], correct:0, exp:"✅ Le categorie condizionali in Outlook consentono di classificare e ordinare automaticamente i messaggi in base a regole definite dall'utente o dall'AI." },
+    { q:"Quando Outlook propone di posticipare una email come promemoria, si tratta di:", a:["Una funzionalità di archiviazione","Un algoritmo basato su regole fisse","Un suggerimento AI basato sul contenuto","Un'impostazione manuale predefinita"], correct:2, exp:"✅ Il posticipo intelligente (Snooze) di Outlook è un suggerimento AI che analizza il contenuto dell'email e propone di rimandare la notifica al momento più opportuno." },
+    { q:"Quale è una delle modalità per creare attività automaticamente da email in Outlook?", a:["Trascinare l'email sul desktop","Segnalare l'email con una bandierina","Cliccare su 'Esporta messaggio'","Rispondere con allegato"], correct:1, exp:"✅ Segnalare un'email con una bandierina è il metodo nativo di Outlook per convertirla in un'attività (task) con scadenza, integrabile anche con Microsoft To Do e Planner." },
+  ]
+},
+{
+  name:"COPILOT STUDIO",
+  topic:"🏗️ COPILOT STUDIO",
+  color:"#7c4dff",
+  emoji:"🏗️",
+  fact:"💡 Copilot Studio è l'ambiente pro-code/low-code per creare agenti AI veri: logica condizionale, connettori verso SAP/Salesforce/SQL, azioni transazionali. L'agente semplice in M365 è un 'oracolo' (legge e parla); Studio è un 'esecutore' (agisce e modifica dati).",
+  questions:[
+    { q:"Cosa distingue fondamentalmente un agente Copilot Studio da un agente semplice M365?", a:["L'interfaccia grafica più moderna","La capacità di eseguire azioni su sistemi esterni e modificare dati","Il numero massimo di domande consentite","La lingua di programmazione usata"], correct:1, exp:"✅ Copilot Studio supporta logica condizionale, orchestrazione multi-agente e oltre 1.400 connettori API verso sistemi di terze parti (ERP, CRM, database SQL). L'agente semplice è solo lettura." },
+    { q:"Quanti connettori API supporta Copilot Studio verso sistemi esterni?", a:["Circa 50","Circa 200","Oltre 1.400","Solo i sistemi Microsoft"], correct:2, exp:"✅ Copilot Studio si connette a oltre 1.400 connettori API o via Model Context Protocol (MCP) verso sistemi come SAP, Salesforce, database SQL e molti altri." },
+    { q:"Nel caso studio 'HR Onboarding Orchestrator', cosa fa l'agente Copilot Studio che quello semplice NON può fare?", a:["Rispondere a domande sulle policy HR","Leggere i manuali aziendali su SharePoint","Aprire ticket in ServiceNow e inserire il dipendente nei gruppi Teams","Fornire link alle FAQ aziendali"], correct:2, exp:"✅ L'agente Studio si collega a Workday (verifica identità), apre ticket in ServiceNow e aggiorna i gruppi Teams. L'agente semplice può solo spiegare la procedura, non eseguirla." },
+    { q:"Quale svantaggio principale ha Copilot Studio rispetto all'Agent Builder semplice?", a:["Non supporta la lingua italiana","Richiede licenze premium, competenze tecniche e governance IT severa","Non può accedere a SharePoint","Funziona solo su dispositivi mobili"], correct:1, exp:"✅ Copilot Studio richiede licenze premium (pay-as-you-go Azure o capacità prepagate), competenze low-code/pro-code per le API e una governance IT rigorosa per evitare errori sui dati." },
+    { q:"Cosa si intende per 'orchestrazione multi-agente' in Copilot Studio?", a:["Usare Copilot su più schermi contemporaneamente","Coordinare più agenti AI specializzati che collaborano per completare task complessi","Tradurre i prompt in più lingue","Gestire più account email dallo stesso pannello"], correct:1, exp:"✅ L'orchestrazione multi-agente permette a un agente 'orchestratore' di delegare sotto-task a agenti specializzati (es. uno per i dati HR, uno per i ticket IT), coordinando il risultato finale." },
+    { q:"Secondo l'opinione del docente, perché Microsoft definire 'Agenti' i modelli in Agent Builder è fuorviante?", a:["Perché non si chiamano agenti in inglese","Perché un set di istruzioni RAG pre-salvate non è vera autonomia agentiva","Perché Agent Builder costa troppo","Perché funziona solo con SharePoint"], correct:1, exp:"✅ Il docente sostiene che chiamare 'agente' un set di prompt RAG pre-salvati annacqua il vero significato dell'automazione AI. Gli agenti semplici sono 'oracoli' (leggono), Studio crea veri 'esecutori' (agiscono)." },
+  ]
+},
+{
+  name:"BOSS FINALE",
+  topic:"💀 VERIFICA COMPLETA",
+  color:"#ff1744",
+  emoji:"💀",
+  fact:"🏆 Sei un Outlook AI Master! Ricorda: Copilot non prende decisioni per te, ma ti dà suggerimenti intelligenti. Usa il Prompt Engineering, controlla sempre le allucinazioni e sfrutta Power Automate per le esecuzioni deterministiche!",
+  questions:[
+    { q:"Quale è il ruolo dell'AI nel completamento automatico di testo in Outlook?", a:["Blocca email promozionali","Completa automaticamente parole e frasi suggerite","Cambia il font in automatico","Riduce lo spazio di archiviazione"], correct:1, exp:"✅ Il completamento automatico di Outlook usa l'AI per suggerire parole e frasi mentre scrivi, accelerando la composizione delle email mantenendo il tono corretto." },
+    { q:"Cosa si intende per 'Grounding' in un prompt Copilot?", a:["Obbligare l'AI a usare solo le fonti fornite dall'utente","Aumentare la temperatura del modello","Formattare l'output in tabella","Tradurre il testo in inglese prima dell'analisi"], correct:0, exp:"✅ Il Grounding ('Ancoraggio') obbliga Copilot a usare SOLO i documenti forniti. Esempio: 'Se l'informazione non è nel file allegato, rispondi Non lo so'. Riduce le allucinazioni." },
+    { q:"Outlook può identificare automaticamente eventi da una email quando:", a:["L'oggetto contiene parole chiave e date","L'utente lo programma da calendario","Il mittente è un contatto VIP","L'email contiene immagini"], correct:0, exp:"✅ Copilot in Outlook analizza il testo delle email alla ricerca di parole chiave temporali (date, orari, luoghi) per suggerire automaticamente di aggiungere l'evento al calendario." },
+    { q:"Qual è il principale rischio del 'Lost in the Middle' nella context window di Copilot?", a:["L'AI si blocca dopo 10 messaggi","Le informazioni nel mezzo del contesto vengono recuperate con minor accuratezza","Copilot consuma più token a fine conversazione","L'AI smette di rispondere in italiano"], correct:1, exp:"✅ Le ricerche mostrano che l'AI ricorda bene inizio e fine del contesto, ma le informazioni 'nel mezzo' soffrono di degradazione. Meglio mettere le istruzioni critiche all'inizio o alla fine." },
+    { q:"Cosa fa il 'Triage IT Agent' descritto nel corso?", a:["Risponde automaticamente alle email dei clienti","Analizza le email, incrocia gli SLA su SharePoint e genera una tabella di classificazione formattata","Blocca le email con allegati sospetti","Pianifica automaticamente i ticket di assistenza"], correct:1, exp:"✅ Il Triage Agent legge la mail, consulta il file SLA_Matrix su SharePoint tramite RAG, e restituisce SOLO una tabella Markdown preformattata con Utente, Errore e Severità." },
+    { q:"Come può Outlook aiutare nella gestione delle email urgenti?", a:["Con la funzione 'Priorità alta' basata su AI","Attivando un antivirus integrato","Convertendo l'email in promemoria audio","Bloccando tutte le risposte multiple"], correct:0, exp:"✅ Outlook usa l'AI per identificare automaticamente le email con priorità alta, analizzando mittente, parole chiave, frequenza di interazione e comportamento storico dell'utente." },
+  ]
+}
+];
+
+// ══════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════
+const DIFF_SEC   = { easy:60, medium:30, hard:15 };
+const DIFF_EMOJI = { easy:'🟢', medium:'🟡', hard:'🔴' };
+const DIFF_LABEL = { easy:'FACILE', medium:'MEDIA', hard:'DIFFICILE' };
+
+let S = {
+  level:0, startLevel:0, qIdx:0, qOrder:[],
+  score:0, lives:3, combo:0, maxCombo:0, timeBonus:0, correctCount:0,
+  answered:false, timer:null, timeLeft:0,
+  difficulty:'easy', shuffledCorrect:0, shuffledIdx:[0,1,2,3],
+  hi: parseInt(localStorage.getItem('oaq_hi')||'0'),
+  answerLog: []   // {levelName, q, yourAnswer, correctAnswer, ok, exp}
+};
+
+document.getElementById('hi-display').textContent = S.hi;
+
+// ── MENU ──────────────────────────────────────────────────
+function selDiff(d) {
+  S.difficulty = d;
+  document.querySelectorAll('.diff-btn').forEach(b=>b.classList.remove('sel'));
+  document.querySelector(`[data-diff="${d}"]`).classList.add('sel');
+  SFX.click();
+}
+function selLevel(n) {
+  S.startLevel = n;
+  document.querySelectorAll('.level-btn').forEach(b=>b.classList.remove('sel'));
+  document.querySelector(`[data-lv="${n}"]`).classList.add('sel');
+  SFX.click();
+}
+function startGame() {
+  SFX.whoosh();
+  S.level = S.startLevel; S.score=0; S.lives=3; S.combo=0; S.maxCombo=0; S.timeBonus=0; S.correctCount=0; S.answerLog=[];
+  document.getElementById('hud-diff').textContent = DIFF_EMOJI[S.difficulty]+' '+DIFF_LABEL[S.difficulty];
+  BGM.start('game'); // called after user click — AudioContext always unlocked here
+  loadLevel();
+}
+function goTitle() { SFX.click(); clearInterval(S.timer); BGM.start('menu'); showScreen('title-screen'); }
+function restartLevel() { SFX.click(); S.lives=3; S.combo=0; loadLevel(); }
+function nextLevel() {
+  SFX.click();
+  S.level++;
+  if (S.level >= LEVELS.length) showVictory();
+  else loadLevel();
+}
+
+// ── LEVEL ─────────────────────────────────────────────────
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function loadLevel() {
+  SFX.whoosh();
+  if(S.level===6){ BGM.start('boss'); setTimeout(()=>SFX.boss(),300); }
+  S.qIdx=0; S.correctCount=0; S.timeBonus=0;
+  const lvl = LEVELS[S.level];
+  S.qOrder = shuffle(lvl.questions.map((_,i)=>i));
+  showScreen('game-screen');
+  document.getElementById('hud-level').textContent = S.level+1;
+  document.getElementById('boss-lbl').style.display = S.level===6?'block':'none';
+  const prog = document.getElementById('level-progress');
+  prog.innerHTML='';
+  lvl.questions.forEach(()=>{ const d=document.createElement('div'); d.className='pdot future'; prog.appendChild(d); });
+  loadQ();
+}
+
+function loadQ() {
+  const lvl = LEVELS[S.level];
+  const q   = lvl.questions[S.qOrder[S.qIdx]];
+  S.answered = false;
+  updateHUD();
+
+  // progress dots
+  document.querySelectorAll('.pdot').forEach((d,i)=>{
+    d.className='pdot';
+    if(i<S.qIdx) d.classList.add('done');
+    else if(i===S.qIdx) d.classList.add('current');
+    else d.classList.add('future');
+  });
+
+  document.getElementById('topic-badge').textContent = lvl.emoji+' '+lvl.topic;
+  document.getElementById('topic-badge').style.borderColor = lvl.color;
+  document.getElementById('hud-q').textContent = `${S.qIdx+1}/${lvl.questions.length}`;
+  document.getElementById('q-text').textContent = q.q;
+
+  // shuffle answers
+  const idx=[0,1,2,3];
+  shuffle(idx);
+  S.shuffledCorrect = idx.indexOf(q.correct);
+  S.shuffledIdx = idx.slice(); // save for answer logging
+  const grid=document.getElementById('ans-grid'); grid.innerHTML='';
+  ['A','B','C','D'].forEach((k,di)=>{
+    const b=document.createElement('button');
+    b.className='ans-btn';
+    b.innerHTML=`<span class="ans-key">${k}</span>${q.a[idx[di]]}`;
+    b.onclick=()=>pick(di);
+    grid.appendChild(b);
+  });
+
+  const fb=document.getElementById('feedback'); fb.style.display='none'; fb.className='feedback';
+  document.getElementById('next-area').innerHTML='';
+  startTimer(DIFF_SEC[S.difficulty]);
+}
+
+// ── TIMER ─────────────────────────────────────────────────
+function startTimer(s) {
+  clearInterval(S.timer); S.timeLeft=s; updateTimer();
+  S.timer = setInterval(()=>{ S.timeLeft--; updateTimer(); if(S.timeLeft<=0){ clearInterval(S.timer); if(!S.answered) timeUp(); }}, 1000);
+}
+function updateTimer() {
+  const el=document.getElementById('timer-el');
+  el.textContent=`⏱ ${S.timeLeft}`;
+  const danger={easy:10,medium:8,hard:5};
+  const isDanger = S.timeLeft<=danger[S.difficulty];
+  el.className='timer-display'+(isDanger?' danger':'');
+  if(S.timeLeft>0 && !S.answered){
+    if(isDanger) SFX.danger();
+    else if(S.timeLeft % 10 === 0) SFX.tick();
+  }
+}
+function timeUp() {
+  SFX.timeup();
+  S.answered=true; loseLife();
+  const q=LEVELS[S.level].questions[S.qOrder[S.qIdx]];
+  S.combo=0; updateHUD();
+  document.querySelectorAll('.ans-btn').forEach(b=>b.disabled=true);
+  document.querySelectorAll('.ans-btn')[S.shuffledCorrect].classList.add('correct');
+  showFB(false,'⏰ TEMPO SCADUTO! '+q.exp);
+  // Log as skipped
+  S.answerLog.push({ levelName: LEVELS[S.level].name, q: q.q, yourAnswer: '⏰ TEMPO SCADUTO', correctAnswer: q.a[q.correct], ok: false, exp: q.exp, skipped: true });
+  showNextBtn();
+}
+
+function loseLife() {
+  S.lives--;
+  const h=['💀','❤️','❤️❤️','❤️❤️❤️'];
+  document.getElementById('hud-lives').textContent=h[Math.max(0,S.lives)];
+}
+function updateHUD() {
+  document.getElementById('hud-score').textContent=S.score;
+  document.getElementById('hud-combo').textContent=`×${Math.min(S.combo+1,4)===1?S.combo+1:Math.min(S.combo,4)}`;
+  const h=['💀','❤️','❤️❤️','❤️❤️❤️'];
+  document.getElementById('hud-lives').textContent=h[Math.max(0,S.lives)];
+}
+function showFB(ok,txt) {
+  const fb=document.getElementById('feedback');
+  fb.innerHTML=txt; fb.className='feedback '+(ok?'ok':'bad'); fb.style.display='block';
+}
+function showNextBtn() {
+  setTimeout(()=>{
+    if(S.lives<=0){ setTimeout(gameOver,900); return; }
+    const label=S.qIdx<LEVELS[S.level].questions.length-1?'▶ PROSSIMA DOMANDA':'🏆 FINE LIVELLO';
+    document.getElementById('next-area').innerHTML=`<button class="next-btn" onclick="nextQ()">${label}</button>`;
+  },400);
+}
+function nextQ() {
+  S.qIdx++;
+  if(S.qIdx>=LEVELS[S.level].questions.length) levelComplete();
+  else loadQ();
+}
+
+// ── LEVEL COMPLETE ─────────────────────────────────────────
+function levelComplete() {
+  const lvl=LEVELS[S.level];
+  const pct=S.correctCount/lvl.questions.length;
+  const stars=pct===1?'⭐⭐⭐':pct>=0.6?'⭐⭐':'⭐';
+  if(S.score>S.hi){ S.hi=S.score; localStorage.setItem('oaq_hi',S.score); document.getElementById('hi-display').textContent=S.score; }
+  if(S.level===6){ showVictory(); return; }
+  SFX.levelComplete();
+  document.getElementById('lc-title').textContent=lvl.emoji+' '+lvl.name+' – COMPLETATO!';
+  document.getElementById('star-row').textContent=stars;
+  document.getElementById('lc-correct').textContent=`${S.correctCount}/${lvl.questions.length}`;
+  document.getElementById('lc-combo').textContent=`×${S.maxCombo}`;
+  document.getElementById('lc-time').textContent=`+${S.timeBonus}`;
+  document.getElementById('lc-total').textContent=S.score+' PTS';
+  document.getElementById('lc-fact').innerHTML=lvl.fact;
+  const nb=document.getElementById('next-lv-btn');
+  nb.style.display=S.level<6?'inline-block':'none';
+  if(S.level<6) nb.textContent=`LIVELLO ${S.level+2}: ${LEVELS[S.level+1].name} ▶`;
+  spawnP(true,18); showScreen('level-complete');
+}
+function showVictory() {
+  BGM.stop();
+  SFX.victory();
+  document.getElementById('final-score').textContent=S.score;
+  spawnP(true,40); showScreen('final-victory');
+}
+function gameOver() {
+  BGM.stop();
+  SFX.gameOver();
+  document.getElementById('go-score').textContent=S.score;
+  document.getElementById('go-hi').textContent=S.hi;
+  spawnP(false,10); showScreen('game-over');
+}
+
+// ── RECAP ─────────────────────────────────────────────────
+function showRecap(){
+  SFX.click();
+  const log = S.answerLog;
+  const total = log.length;
+  const correct = log.filter(r=>r.ok).length;
+  const wrong   = log.filter(r=>!r.ok && !r.skipped).length;
+  const skipped = log.filter(r=>r.skipped).length;
+  const pct = total ? Math.round(correct/total*100) : 0;
+
+  // Stats bar
+  const stats = document.getElementById('recap-stats');
+  stats.innerHTML = `
+    <div class="recap-stat"><span class="recap-stat-val green">${correct}</span>✅ CORRETTE</div>
+    <div class="recap-stat"><span class="recap-stat-val red">${wrong}</span>❌ ERRATE</div>
+    <div class="recap-stat"><span class="recap-stat-val" style="color:#888">${skipped}</span>⏰ SCADUTE</div>
+    <div class="recap-stat"><span class="recap-stat-val yellow">${pct}%</span>PUNTEGGIO</div>
+    <div class="recap-stat"><span class="recap-stat-val yellow">${S.score}</span>PTS TOTALI</div>
+  `;
+
+  // Group by level
+  const byLevel = {};
+  log.forEach(r=>{ if(!byLevel[r.levelName]) byLevel[r.levelName]=[]; byLevel[r.levelName].push(r); });
+
+  const list = document.getElementById('recap-list');
+  list.innerHTML = '';
+
+  Object.entries(byLevel).forEach(([lvl, items])=>{
+    const hdr = document.createElement('div');
+    hdr.className = 'recap-level-hdr';
+    hdr.textContent = '📂 ' + lvl;
+    list.appendChild(hdr);
+
+    items.forEach((r, i)=>{
+      const div = document.createElement('div');
+      div.className = 'recap-item ' + (r.ok ? 'ri-ok' : r.skipped ? 'ri-skip' : 'ri-bad');
+      const badge = r.ok ? '<span class="recap-badge rb-ok">✓ CORRETTO</span>' : r.skipped ? '<span class="recap-badge rb-skip">⏰ SCADUTO</span>' : '<span class="recap-badge rb-bad">✗ ERRATO</span>';
+      div.innerHTML = `
+        <div class="recap-item-q">${badge}<strong>D${i+1}.</strong> ${r.q}</div>
+        <div class="recap-item-ans">
+          <span class="ri-given">▶ La tua risposta: ${r.yourAnswer}</span>
+          ${!r.ok ? `<span class="ri-right">✓ Risposta corretta: ${r.correctAnswer}</span>` : ''}
+        </div>
+        <div class="recap-item-exp">${r.exp}</div>
+      `;
+      list.appendChild(div);
+    });
+  });
+
+  showScreen('recap-screen');
+}
+
+// ── PDF DOWNLOAD ──────────────────────────────────────────
+function downloadPDF(){
+  SFX.click();
+  const log = S.answerLog;
+  const correct = log.filter(r=>r.ok).length;
+  const total   = log.length;
+  const pct     = total ? Math.round(correct/total*100) : 0;
+  const date    = new Date().toLocaleDateString('it-IT');
+
+  // Build HTML for printing
+  const byLevel = {};
+  log.forEach(r=>{ if(!byLevel[r.levelName]) byLevel[r.levelName]=[]; byLevel[r.levelName].push(r); });
+
+  let rows = '';
+  Object.entries(byLevel).forEach(([lvl, items])=>{
+    rows += `<tr><td colspan="4" style="background:#0078d4;color:#fff;font-weight:bold;padding:8px 10px;font-size:13px">📂 ${lvl}</td></tr>`;
+    items.forEach((r,i)=>{
+      const statusIcon = r.ok ? '✅' : r.skipped ? '⏰' : '❌';
+      const statusColor = r.ok ? '#006400' : r.skipped ? '#555' : '#8b0000';
+      rows += `
+        <tr style="border-bottom:1px solid #ddd">
+          <td style="padding:8px;vertical-align:top;color:${statusColor};font-size:18px;width:30px">${statusIcon}</td>
+          <td style="padding:8px;vertical-align:top;font-weight:bold;font-size:11px;color:#222;width:50%">${r.q}</td>
+          <td style="padding:8px;vertical-align:top;font-size:11px;${r.ok?'color:#006400':'color:#8b0000'}">
+            ${r.ok ? `✓ ${r.yourAnswer}` : `✗ ${r.yourAnswer}<br><span style="color:#006400">✓ ${r.correctAnswer}</span>`}
+          </td>
+          <td style="padding:8px;vertical-align:top;font-size:10px;color:#444;width:35%">${r.exp.replace(/^[✅❌⏰]\s*/,'')}</td>
+        </tr>`;
+    });
+  });
+
+  const html = `<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8">
+<title>Riepilogo – Outlook AI Quest</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #222; }
+  h1 { color: #0078d4; font-size: 22px; margin-bottom: 4px; }
+  .sub { color: #555; font-size: 12px; margin-bottom: 16px; }
+  .summary { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap:wrap; }
+  .scard { border: 2px solid #0078d4; padding: 10px 18px; text-align: center; border-radius: 4px; }
+  .sval { font-size: 28px; font-weight: bold; display: block; }
+  .sval.g { color: #006400; } .sval.r { color: #8b0000; } .sval.y { color: #856404; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #0078d4; color: #fff; padding: 8px 10px; text-align: left; }
+  tr:nth-child(even) { background: #f5f9ff; }
+  @media print { body { padding: 10px; } }
+</style>
+</head><body>
+<h1>📧 OUTLOOK AI QUEST – Riepilogo Risposte</h1>
+<div class="sub">Data: ${date} &nbsp;|&nbsp; Difficoltà: ${S.difficulty.toUpperCase()} &nbsp;|&nbsp; Punteggio: ${S.score} PTS</div>
+<div class="summary">
+  <div class="scard"><span class="sval g">${correct}</span>✅ Corrette</div>
+  <div class="scard"><span class="sval r">${log.filter(r=>!r.ok&&!r.skipped).length}</span>❌ Errate</div>
+  <div class="scard"><span class="sval" style="color:#555">${log.filter(r=>r.skipped).length}</span>⏰ Scadute</div>
+  <div class="scard"><span class="sval y">${pct}%</span>Percentuale</div>
+  <div class="scard"><span class="sval y">${S.score}</span>Punti totali</div>
+</div>
+<table>
+  <thead><tr><th style="width:30px"></th><th>Domanda</th><th style="width:22%">Risposta</th><th style="width:30%">Spiegazione</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<p style="margin-top:20px;font-size:10px;color:#888;text-align:center">Generato da Outlook AI Quest · IA per Outlook – Smetti di lavorare, inizia a pilotare!</p>
+</body></html>`;
+
+  const blob = new Blob([html], {type:'text/html'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `OutlookAIQuest_Riepilogo_${date.replace(/\//g,'-')}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── PARTICLES ─────────────────────────────────────────────
+function spawnP(pos,n=8){
+  const c=document.getElementById('particles');
+  const cols=pos?['#00e676','#00bcf2','#ffff00','#fff']:['#ff1744','#ff9100','#e040fb'];
+  for(let i=0;i<n;i++){
+    const p=document.createElement('div');
+    const col=cols[Math.floor(Math.random()*cols.length)];
+    const sz=Math.random()*8+4, x=Math.random()*window.innerWidth, y=Math.random()*window.innerHeight;
+    const ang=Math.random()*360, dist=Math.random()*150+50;
+    p.style.cssText=`position:absolute;width:${sz}px;height:${sz}px;background:${col};box-shadow:0 0 6px ${col};left:${x}px;top:${y}px;border-radius:${Math.random()>.5?'50%':'0'};pointer-events:none;z-index:9996;animation:pAnim .8s ease-out forwards;--dx:${Math.cos(ang*Math.PI/180)*dist}px;--dy:${Math.sin(ang*Math.PI/180)*dist}px;`;
+    c.appendChild(p); setTimeout(()=>p.remove(),800);
+  }
+}
+const ps=document.createElement('style');
+ps.textContent='@keyframes pAnim{from{transform:translate(0,0) scale(1);opacity:1;}to{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0;}}';
+document.head.appendChild(ps);
+
+// ── SCREEN ────────────────────────────────────────────────
+function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+// ── FULLSCREEN ────────────────────────────────────────────
+function toggleFS(){
+  if(!document.fullscreenElement){ document.documentElement.requestFullscreen().catch(()=>{}); document.getElementById('fs-btn').textContent='✕ ESC'; }
+  else document.exitFullscreen();
+}
+document.addEventListener('fullscreenchange',()=>{ document.getElementById('fs-btn').textContent=document.fullscreenElement?'✕ ESC':'⛶ FULL'; });
+
+// ══════════════════════════════════════════════════════════
+//  AUDIO ENGINE (Web Audio API – zero dipendenze)
+// ══════════════════════════════════════════════════════════
+let audioCtx = null;
+let muted = false;
+
+function getAudioCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function toggleMute(){
+  muted=!muted;
+  BGM.setMuted(muted);
+  document.getElementById('mute-btn').textContent = muted ? '🔇 OFF' : '🔊 ON';
+  document.getElementById('mute-btn').style.color        = muted ? '#555' : '';
+  document.getElementById('mute-btn').style.borderColor  = muted ? '#333' : '';
+}
+
+/* Generic oscillator helper */
+function playTone(freq, type, dur, vol=0.25, startDelay=0, detune=0){
+  if(muted) return;
+  try {
+    const ctx=getAudioCtx();
+    const o=ctx.createOscillator();
+    const g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type=type; o.frequency.value=freq; o.detune.value=detune;
+    const t=ctx.currentTime+startDelay;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(vol,t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+    o.start(t); o.stop(t+dur+0.02);
+  } catch(e){}
+}
+
+/* ─ SOUND LIBRARY ─ */
+const SFX = {
+
+  // Menu navigation click – short blip
+  click(){
+    playTone(440,'square',0.08,0.18);
+    playTone(660,'square',0.06,0.10,0.04);
+  },
+
+  // Countdown tick every second
+  tick(){
+    playTone(220,'square',0.07,0.12);
+  },
+
+  // Timer danger (last 5 sec) – urgent beep
+  danger(){
+    playTone(880,'square',0.10,0.20);
+    playTone(660,'square',0.08,0.12,0.05);
+  },
+
+  // Correct answer – ascending arpeggio
+  correct(){
+    [523,659,784,1047].forEach((f,i)=>playTone(f,'sine',0.18,0.22,i*0.07));
+  },
+
+  // Wrong answer – descending buzzer
+  wrong(){
+    playTone(200,'sawtooth',0.12,0.3);
+    playTone(150,'sawtooth',0.18,0.18,0.10);
+    playTone(100,'sawtooth',0.22,0.25,0.20);
+  },
+
+  // Combo x2+ – sparkle
+  combo(n){
+    const freqs=[523,659,784,1047,1319];
+    for(let i=0;i<Math.min(n,5);i++) playTone(freqs[i],'triangle',0.14,0.18,i*0.055);
+  },
+
+  // Time up – alarm buzz
+  timeup(){
+    [200,150,100,200,150].forEach((f,i)=>playTone(f,'sawtooth',0.10,0.28,i*0.08));
+  },
+
+  // Level complete – fanfare
+  levelComplete(){
+    const m=[523,523,523,415,523,622,698];
+    m.forEach((f,i)=>playTone(f,'sine',0.25,0.28,i*0.12));
+    m.forEach((f,i)=>playTone(f*2,'triangle',0.15,0.10,i*0.12+0.06));
+  },
+
+  // Game over – funeral march
+  gameOver(){
+    [330,330,330,262,392,330,262,392,330].forEach((f,i)=>playTone(f,'sawtooth',0.22,0.20,i*0.16));
+  },
+
+  // Victory – epic win
+  victory(){
+    const v=[523,659,784,1047,784,1047,1319,1047,784,659,523];
+    v.forEach((f,i)=>playTone(f,'sine',0.28,0.30,i*0.10));
+    v.forEach((f,i)=>playTone(f,'square',0.08,0.10,i*0.10+0.03));
+  },
+
+  // Restart confirm – descending zap
+  restart(){
+    [800,600,400,200].forEach((f,i)=>playTone(f,'sawtooth',0.10,0.25,i*0.05));
+  },
+
+  // Screen transition whoosh
+  whoosh(){
+    try {
+      if(muted) return;
+      const ctx=getAudioCtx();
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.18,ctx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
+      const s=ctx.createBufferSource(); s.buffer=buf;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.15,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.18);
+      const f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1200;
+      s.connect(f); f.connect(g); g.connect(ctx.destination);
+      s.start(); s.stop(ctx.currentTime+0.20);
+    } catch(e){}
+  },
+
+  // Boss level alert
+  boss(){
+    [200,250,300,250,200,150].forEach((f,i)=>playTone(f,'square',0.15,0.25,i*0.08));
+  }
+};
+
+// ══════════════════════════════════════════════════════════
+//  BACKGROUND MUSIC ENGINE
+//  Chiptune arcade loop – Web Audio API, zero file
+// ══════════════════════════════════════════════════════════
+const BGM = (() => {
+  let masterGain = null;  // uses shared getAudioCtx() — no private ctx
+  let isPlaying = false;
+  let scheduleTimer = null;
+  let nextBeat = 0;
+  let beatIdx = 0;
+  let currentTheme = 'menu';
+
+  // ── THEMES ──────────────────────────────────────────────
+  // Each theme: bpm, sequence of {freq, type, dur, vol}[]  per beat
+  // freq=0 means rest. Melody + bass + arpeggios layered.
+
+  const THEMES = {
+    menu: {
+      bpm: 130,
+      // A catchy C-major / A-minor looping 8-bar phrase
+      melody: [
+        [523,0],[659,0],[784,0],[1047,0], [880,0],[784,0],[659,0],[523,0],
+        [587,0],[740,0],[880,0],[1109,0], [987,0],[880,0],[740,0],[587,0],
+        [523,0],[659,0],[784,0],[1047,0], [880,0],[784,0],[659,0],[523,0],
+        [440,0],[587,0],[699,0],[880,0],  [784,0],[699,0],[587,0],[440,0],
+      ],
+      bass: [
+        [131,0],[0,0],[131,0],[0,0], [131,0],[0,0],[196,0],[0,0],
+        [147,0],[0,0],[147,0],[0,0], [147,0],[0,0],[220,0],[0,0],
+        [131,0],[0,0],[131,0],[0,0], [131,0],[0,0],[196,0],[0,0],
+        [110,0],[0,0],[110,0],[0,0], [110,0],[0,0],[165,0],[0,0],
+      ],
+    },
+    game: {
+      bpm: 148,
+      melody: [
+        [659,0],[0,0],[784,0],[0,0], [880,0],[0,0],[1047,0],[880,0],
+        [784,0],[0,0],[659,0],[0,0], [587,0],[0,0],[523,0],[587,0],
+        [659,0],[0,0],[784,0],[0,0], [880,0],[0,0],[1047,0],[880,0],
+        [987,0],[880,0],[784,0],[0,0],[699,0],[0,0],[659,0],[0,0],
+        [523,0],[659,0],[784,0],[0,0],[880,0],[784,0],[699,0],[0,0],
+        [659,0],[0,0],[587,0],[0,0], [523,0],[0,0],[494,0],[0,0],
+        [523,0],[659,0],[784,0],[0,0],[880,0],[784,0],[699,0],[0,0],
+        [659,0],[784,0],[880,0],[0,0],[987,0],[0,0],[1047,0],[0,0],
+      ],
+      bass: [
+        [131,0],[0,0],[196,0],[0,0], [131,0],[0,0],[196,0],[0,0],
+        [147,0],[0,0],[220,0],[0,0], [147,0],[0,0],[220,0],[0,0],
+        [131,0],[0,0],[196,0],[0,0], [131,0],[0,0],[196,0],[0,0],
+        [165,0],[0,0],[247,0],[0,0], [165,0],[0,0],[247,0],[0,0],
+        [131,0],[0,0],[196,0],[0,0], [131,0],[0,0],[196,0],[0,0],
+        [123,0],[0,0],[185,0],[0,0], [123,0],[0,0],[185,0],[0,0],
+        [131,0],[0,0],[196,0],[0,0], [131,0],[0,0],[196,0],[0,0],
+        [165,0],[0,0],[247,0],[0,0], [165,0],[0,0],[247,0],[0,0],
+      ],
+    },
+    boss: {
+      bpm: 170,
+      melody: [
+        [220,0],[0,0],[277,0],[294,0], [330,0],[0,0],[415,0],[0,0],
+        [440,0],[415,0],[370,0],[0,0], [330,0],[0,0],[294,0],[0,0],
+        [220,0],[0,0],[277,0],[294,0], [330,0],[0,0],[415,0],[440,0],
+        [494,0],[440,0],[415,0],[0,0], [370,0],[330,0],[294,0],[0,0],
+        [220,0],[330,0],[440,0],[0,0], [494,0],[440,0],[330,0],[0,0],
+        [220,0],[0,0],[277,0],[330,0], [370,0],[330,0],[277,0],[0,0],
+        [220,0],[330,0],[440,0],[0,0], [494,0],[440,0],[330,0],[220,0],
+        [165,0],[0,0],[247,0],[0,0],  [220,0],[0,0],[0,0],[0,0],
+      ],
+      bass: [
+        [55,0],[0,0],[55,0],[0,0], [82,0],[0,0],[55,0],[0,0],
+        [55,0],[0,0],[55,0],[0,0], [82,0],[0,0],[55,0],[0,0],
+        [55,0],[0,0],[55,0],[0,0], [82,0],[0,0],[55,0],[0,0],
+        [55,0],[0,0],[73,0],[0,0], [82,0],[0,0],[55,0],[0,0],
+        [55,0],[0,0],[55,0],[0,0], [82,0],[0,0],[55,0],[0,0],
+        [55,0],[0,0],[55,0],[0,0], [73,0],[0,0],[55,0],[0,0],
+        [55,0],[0,0],[55,0],[0,0], [82,0],[0,0],[55,0],[0,0],
+        [41,0],[0,0],[41,0],[0,0], [55,0],[0,0],[0,0],[0,0],
+      ],
+    },
+  };
+
+  function note(freq, type, startTime, duration, vol, detune=0){
+    if(!freq || muted) return;
+    try {
+      const c = getAudioCtx(); // shared context, always unlocked
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.connect(g); g.connect(masterGain);
+      o.type = type; o.frequency.value = freq; o.detune.value = detune;
+      g.gain.setValueAtTime(0, startTime);
+      g.gain.linearRampToValueAtTime(vol, startTime + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.001, startTime + duration * 0.85);
+      o.start(startTime); o.stop(startTime + duration);
+    } catch(e){}
+  }
+
+  function scheduleBeat(){
+    if(!isPlaying) return;
+    const theme = THEMES[currentTheme];
+    const bps = theme.bpm / 60;
+    const beatDur = 1 / bps;
+    const lookahead = 0.12;
+
+    while(nextBeat < getAudioCtx().currentTime + lookahead){
+      const mel = theme.melody;
+      const bas = theme.bass;
+      const idx = beatIdx % mel.length;
+      const mFreq = mel[idx][0];
+      const bFreq = bas[idx][0];
+      // melody: square wave, bright
+      note(mFreq, 'square', nextBeat, beatDur * 0.55, 0.06);
+      // melody harmonic layer: triangle, softer
+      note(mFreq, 'triangle', nextBeat, beatDur * 0.7, 0.04, 5);
+      // bass: sawtooth, punchy
+      note(bFreq, 'sawtooth', nextBeat, beatDur * 0.4, 0.08);
+      // hi-hat: every beat – noise burst
+      if(!muted && idx % 2 === 0) hihat(nextBeat, 0.022);
+      nextBeat += beatDur;
+      beatIdx++;
+    }
+    scheduleTimer = setTimeout(scheduleBeat, 40);
+  }
+
+  function hihat(t, dur){
+    try {
+      const c = getAudioCtx();
+      const buf = c.createBuffer(1, Math.ceil(c.sampleRate*dur), c.sampleRate);
+      const d = buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i] = (Math.random()*2-1);
+      const s = c.createBufferSource(); s.buffer = buf;
+      const flt = c.createBiquadFilter(); flt.type='highpass'; flt.frequency.value=8000;
+      const g = c.createGain(); g.gain.setValueAtTime(0.04,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+      s.connect(flt); flt.connect(g); g.connect(masterGain);
+      s.start(t); s.stop(t+dur+0.005);
+    }catch(e){}
+  }
+
+  function start(theme='menu'){
+    if(muted) return;
+    currentTheme = theme;
+    stop(); // clear any prior loop
+    try {
+      const c = getAudioCtx(); // already unlocked — user clicked to get here
+      if(!masterGain || masterGain.context !== c){
+        masterGain = c.createGain();
+        masterGain.gain.value = 0.38;
+        masterGain.connect(c.destination);
+      }
+      isPlaying = true;
+      beatIdx = 0;
+      nextBeat = c.currentTime + 0.08;
+      scheduleBeat();
+    } catch(e){}
+  }
+
+  function stop(){
+    isPlaying = false;
+    clearTimeout(scheduleTimer);
+  }
+
+  function setTheme(theme){
+    if(currentTheme === theme && isPlaying) return;
+    start(theme); // start() calls stop() internally now
+  }
+
+  function setMuted(m){
+    if(m){ stop(); if(masterGain) masterGain.gain.value=0; }
+    else { if(masterGain) masterGain.gain.value=0.38; start(currentTheme); }
+  }
+
+  return { start, stop, setTheme, setMuted };
+})();
+
+// ── RESTART LOGIC ─────────────────────────────────────────
+function askRestart(){
+  SFX.click();
+  document.getElementById('rc-score-val').textContent = S.score;
+  document.getElementById('restart-confirm').classList.add('show');
+}
+function closeRestart(){
+  SFX.click();
+  document.getElementById('restart-confirm').classList.remove('show');
+}
+function confirmRestart(){
+  SFX.restart();
+  document.getElementById('restart-confirm').classList.remove('show');
+  clearInterval(S.timer);
+  S.score=0; S.lives=3; S.combo=0; S.maxCombo=0; S.timeBonus=0; S.correctCount=0; S.answerLog=[];
+  S.level=S.startLevel;
+  document.getElementById('hud-diff').textContent = DIFF_EMOJI[S.difficulty]+' '+DIFF_LABEL[S.difficulty];
+  setTimeout(()=>{ SFX.whoosh(); loadLevel(); }, 200);
+}
+// Close on overlay click
+document.getElementById('restart-confirm').addEventListener('click', function(e){
+  if(e.target===this) closeRestart();
+});
+
+// ── KEYBOARD ──────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  // ESC closes restart modal
+  if(e.key==='Escape'){
+    if(document.getElementById('restart-confirm').classList.contains('show')){ closeRestart(); return; }
+  }
+  // R = quick restart (only during game)
+  if(e.key.toLowerCase()==='r' && document.getElementById('game-screen').classList.contains('active')){
+    askRestart(); return;
+  }
+  if(document.getElementById('game-screen').classList.contains('active')&&!S.answered){
+    const map={a:0,b:1,c:2,d:3,'1':0,'2':1,'3':2,'4':3};
+    const i=map[e.key.toLowerCase()];
+    if(i!==undefined){ SFX.click(); pick(i); }
+  }
+  if(e.key==='Enter'){ const nb=document.querySelector('#next-area .next-btn'); if(nb){ SFX.click(); nb.click(); } }
+});
+
+// ── PATCH SOUNDS INTO GAME FLOW ───────────────────────────
+// Re-define pick with full SFX
+function pick(di){
+  if(S.answered) return;
+  SFX.click();
+  S.answered=true; clearInterval(S.timer);
+  const q=LEVELS[S.level].questions[S.qOrder[S.qIdx]];
+  const ok=(di===S.shuffledCorrect);
+  const btns=document.querySelectorAll('.ans-btn');
+  btns.forEach(b=>b.disabled=true);
+  btns[di].classList.add(ok?'correct':'wrong');
+  if(!ok) btns[S.shuffledCorrect].classList.add('correct');
+
+  if(ok){
+    SFX.correct();
+    S.combo++; S.maxCombo=Math.max(S.maxCombo,S.combo); S.correctCount++;
+    const tb=S.timeLeft*10; S.timeBonus+=tb;
+    const mult=Math.min(S.combo,4);
+    const pts=(100+tb)*mult; S.score+=pts;
+    if(S.combo>1){ SFX.combo(S.combo); const el=document.createElement('div'); el.className='combo-pop'; el.textContent=`COMBO ×${S.combo}! 🔥`; document.querySelector('.arena').appendChild(el); setTimeout(()=>el.remove(),600); }
+    const fs=document.createElement('div'); fs.className='float-score'; fs.style.cssText=`top:${Math.random()*25+30}%;left:${Math.random()*55+20}%;color:${mult>2?'#ffff00':'#00e676'}`;
+    fs.textContent=`+${pts}`; document.querySelector('.arena').appendChild(fs); setTimeout(()=>fs.remove(),1000);
+    spawnP(true); showFB(true,q.exp);
+  } else {
+    SFX.wrong();
+    S.combo=0; loseLife(); spawnP(false); showFB(false,q.exp);
+  }
+  // Log answer
+  S.answerLog.push({ levelName: LEVELS[S.level].name, q: q.q, yourAnswer: q.a[S.shuffledIdx[di]], correctAnswer: q.a[q.correct], ok, exp: q.exp, skipped: false });
+  updateHUD(); showNextBtn();
+}
+
+// Instructions update (show R shortcut)
+document.querySelector('.instructions').innerHTML =
+  '<span>RISPONDI</span> correttamente → punti &nbsp;|&nbsp; <span>COMBO</span> consecutive → ×2 ×3 ×4<br>' +
+  '<span>VITE:</span> 3 errori = GAME OVER &nbsp;|&nbsp; <span>A/B/C/D</span> tasti risposta &nbsp;|&nbsp; <span>R</span> = restart rapido';
+
+// BGM starts on first real user action (GIOCA ORA / MENU buttons)
+// AudioContext is always unlocked by then — no race condition.
+let bgmStarted = false;
+
+showScreen('title-screen');
+</script>
+</body>
+</html>
